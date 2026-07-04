@@ -1,0 +1,13 @@
+[Unit]
+Description=Draai het Volkskrant-cryptogram wekelijks (zaterdagochtend)
+
+[Timer]
+# Zaterdag 08:00 in de VPS-tijdzone. Zet de VPS op Europe/Amsterdam of gebruik
+# een absoluut tijdstip dat daarmee overeenkomt.
+OnCalendar=Sat *-*-* 08:00:00
+# Vang een gemiste run op (bv. VPS stond uit) zodra de machine weer aan is.
+Persistent=true
+Unit=cryptogram2remarkable.service
+
+[Install]
+WantedBy=timers.target

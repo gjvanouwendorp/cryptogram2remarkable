@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__computer",
+      "mcp__claude-in-chrome__list_connected_browsers",
+      "mcp__claude-in-chrome__javascript_tool",
+      "Bash(python3 tests/fixtures/build_fixtures.py)",
+      "Bash(python3 -)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -c \"import reportlab; print\\('reportlab', reportlab.Version\\)\")",
+      "Bash(PYTHONPATH=src .venv/bin/python -m cryptogram2remarkable.cli normalize --raw tests/fixtures/sample_raw.json --out data/puzzle-2026-07-04.json)",
+      "Bash(PYTHONPATH=src .venv/bin/python -m cryptogram2remarkable.cli render --raw tests/fixtures/sample_raw.json --out data/cryptogram-2026-07-04.pdf)",
+      "Bash(PYTHONPATH=src .venv/bin/python -m pytest -q)",
+      "Bash(PYTHONPATH=src .venv/bin/python -c \"import compileall,sys; sys.exit\\(0 if compileall.compile_dir\\('src', quiet=1\\) else 1\\)\")",
+      "Bash(PYTHONPATH=src .venv/bin/python -c \"import cryptogram2remarkable.cli, cryptogram2remarkable.scrape, cryptogram2remarkable.pipeline, cryptogram2remarkable.upload, cryptogram2remarkable.session, cryptogram2remarkable.config; print\\('imports OK'\\)\")",
+      "Bash(export PYTHONPATH=src)",
+      "Bash(.venv/bin/python -m cryptogram2remarkable.cli --help)",
+      "Bash(.venv/bin/python -m cryptogram2remarkable.cli render --raw tests/fixtures/sample_raw.json --out data/cryptogram-2026-07-04-gridfirst.pdf --layout grid_first)",
+      "Bash(.venv/bin/python -m pytest -q)",
+      "Bash(.venv/bin/python -m cryptogram2remarkable.cli render --raw tests/fixtures/sample_raw.json --out data/cryptogram-2026-07-04.pdf)"
+    ]
+  }
+}

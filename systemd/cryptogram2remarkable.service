@@ -1,0 +1,17 @@
+[Unit]
+Description=Volkskrant-cryptogram naar reMarkable 2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Pas User en paden aan naar jouw VPS-setup.
+User=c2rm
+WorkingDirectory=/opt/cryptogram2remarkable
+EnvironmentFile=/etc/c2rm.env
+ExecStart=/opt/cryptogram2remarkable/.venv/bin/c2rm run
+# Netjes afsluiten en niet eindeloos hangen.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

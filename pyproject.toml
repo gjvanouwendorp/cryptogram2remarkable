@@ -1,0 +1,24 @@
+[project]
+name = "cryptogram2remarkable"
+version = "0.1.0"
+description = "Haalt wekelijks het Volkskrant-cryptogram op en stuurt het als PDF naar een reMarkable 2."
+requires-python = ">=3.11"
+dependencies = [
+    "reportlab>=4.0",
+    "playwright>=1.44",
+    "pydantic-settings>=2.0",
+    "tenacity>=8.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+c2rm = "cryptogram2remarkable.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
