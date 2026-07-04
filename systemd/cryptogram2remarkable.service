@@ -5,12 +5,17 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Pas User en paden aan naar jouw VPS-setup.
 User=c2rm
+# bootstrap.sh vervangt /opt/cryptogram2remarkable door de echte projectmap.
 WorkingDirectory=/opt/cryptogram2remarkable
 EnvironmentFile=/etc/c2rm.env
+# Chrome heeft een schrijfbare HOME nodig; rmapi vindt zijn token via RMAPI_CONFIG.
+Environment=HOME=/home/c2rm
+Environment=RMAPI_CONFIG=/opt/cryptogram2remarkable/rmapi.conf
 ExecStart=/opt/cryptogram2remarkable/.venv/bin/c2rm run
-# Netjes afsluiten en niet eindeloos hangen.
+# Bot-detectie-fallback (headed onder Xvfb): zet C2RM_HEADLESS=false in
+# /etc/c2rm.env en gebruik in plaats van bovenstaande regel:
+# ExecStart=/usr/bin/xvfb-run -a /opt/cryptogram2remarkable/.venv/bin/c2rm run
 TimeoutStartSec=600
 
 [Install]

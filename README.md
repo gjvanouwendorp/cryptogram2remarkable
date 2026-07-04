@@ -19,9 +19,10 @@ scrape  ->  normalize  ->  render  ->  upload
 Elke stap is een los CLI-subcommando en schrijft naar `data/`, zodat je de render
 kunt itereren op een fixture zonder live te scrapen.
 
-## Installatie
+## Installatie (lokaal)
 
-Zowel lokaal (voor de eenmalige login) als op de VPS:
+Voor de eenmalige login op je Mac. (Op de VPS doet `deploy/bootstrap.sh` dit voor
+je — zie [Deployment op de VPS](#deployment-op-de-vps).)
 
 ```bash
 python3 -m venv .venv
@@ -35,44 +36,60 @@ pip install -e .               # maakt het `c2rm`-commando aan (entry point)
 
 ### Browser: echte Google Chrome (verplicht)
 
-De DPG-login zit achter **Akamai bot-detectie**, die een kale Playwright-browser
-weigert (HTTP 406). We gebruiken daarom [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)
+De DPG-login zit achter **Akamai bot-detectie** die een geautomatiseerde browser
+weigert (HTTP 406) — óók met `channel="chrome"`, want de CDP-besturing is
+detecteerbaar. We gebruiken daarom [patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)
 (gepatchte Playwright, meegeïnstalleerd via `pip install -e .`) met **echte Google
-Chrome** (`C2RM_BROWSER_CHANNEL=chrome`).
+Chrome** (`C2RM_BROWSER_CHANNEL=chrome`). Lokaal (Mac) heb je Chrome al; op de VPS
+installeert `deploy/bootstrap.sh` automatisch `google-chrome-stable`. De login zelf
+wordt bewust **niet** geautomatiseerd (zie hieronder), anders blokkeert Akamai die
+alsnog.
 
-- **Lokaal (Mac):** Google Chrome is er al — niets extra's nodig.
-- **VPS:** installeer `google-chrome-stable`. Dat pakket zit achter Google's eigen
-  apt-repo (de enige externe bron die je toevoegt):
-  ```bash
-  curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
-  echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-  sudo apt-get update && sudo apt-get install -y google-chrome-stable
-  cp .env.example .env          # en invullen
-  ```
+## Lokaal: login-profiel aanmaken
 
-## Eenmalige setup
+De ingelogde sessie leeft in een profielmap die je naar de VPS kopieert. `c2rm
+login` opent een gewone, **mensgestuurde** Chrome (geen automation, geen CDP), zodat
+Akamai je normaal binnenlaat:
 
-1. **Login-profiel aanmaken — doe dit LOKAAL (met beeldscherm):**
+```bash
+source .venv/bin/activate
+c2rm login          # log in bij de Volkskrant, SLUIT daarna het venster
+```
+
+Het profiel kopieer je in de deployment-stap hieronder naar de VPS.
+
+## Deployment op de VPS
+
+1. **Code naar de VPS** (git clone, of rsync vanaf je Mac), bijv. naar
+   `/opt/cryptogram2remarkable`:
    ```bash
-   source .venv/bin/activate
-   c2rm login          # opent een browser; log in bij de Volkskrant
-   rsync -a profile/ vps:/opt/cryptogram2remarkable/profile/
+   sudo rsync -a --exclude .venv --exclude profile --exclude data ./ <vps>:/opt/cryptogram2remarkable/
    ```
-   Een headless VPS heeft geen scherm voor de interactieve login, dus dit gebeurt
-   lokaal; daarna kopieer je de profielmap naar de VPS. (Lokaal moet dus ook
-   `playwright install chromium` gedraaid zijn.)
-
-2. **rmapi registreren (op de VPS):**
+2. **Bootstrap draaien** — installeert Chrome, Xvfb, venv + package, service-user,
+   mappen en de systemd-units:
    ```bash
-   rmapi        # voer de one-time code van my.remarkable.com in
+   cd /opt/cryptogram2remarkable && sudo bash deploy/bootstrap.sh
    ```
-
-3. **systemd (op de VPS):**
+3. **Handmatige stappen** (de bootstrap somt ze aan het eind ook op):
    ```bash
-   sudo cp systemd/*.{service,timer} /etc/systemd/system/
-   sudo cp .env /etc/c2rm.env && sudo chmod 600 /etc/c2rm.env
+   # a) profiel kopiëren vanaf je Mac + eigendom zetten
+   rsync -a profile/ <vps>:/opt/cryptogram2remarkable/profile/
+   sudo chown -R c2rm:c2rm /opt/cryptogram2remarkable/profile
+
+   # b) rmapi installeren (binary van github.com/ddvk/rmapi/releases -> /usr/local/bin)
+   #    en registreren met de one-time code van my.remarkable.com:
+   sudo -u c2rm RMAPI_CONFIG=/opt/cryptogram2remarkable/rmapi.conf rmapi
+
+   # c) testen, dan de timer aanzetten
+   sudo -u c2rm /opt/cryptogram2remarkable/.venv/bin/c2rm check-session
+   sudo -u c2rm /opt/cryptogram2remarkable/.venv/bin/c2rm run --dry-run
    sudo systemctl enable --now cryptogram2remarkable.timer
    ```
+
+De timer draait zaterdag 08:00 (`Persistent=true` haalt een gemiste run in). Logs:
+`journalctl -u cryptogram2remarkable`. Geeft de headless scrape op de VPS toch een
+406, zet dan `C2RM_HEADLESS=false` in `/etc/c2rm.env` en gebruik de Xvfb-ExecStart
+uit het service-bestand.
 
 ## Gebruik
 
@@ -101,4 +118,5 @@ de lastige gevallen.
 ## Secrets
 
 Niets gevoeligs in de repo: de VK-sessie leeft in `profile/` (git-ignored), het
-reMarkable-token in `~/.config/rmapi/rmapi.conf`. `.env` staat in `.gitignore`.
+reMarkable-token in `rmapi.conf` (via `RMAPI_CONFIG`, ook git-ignored). `.env` en
+`/etc/c2rm.env` staan buiten de repo.
