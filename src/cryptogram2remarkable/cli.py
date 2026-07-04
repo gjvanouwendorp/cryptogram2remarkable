@@ -107,6 +107,47 @@ def cmd_debug_cookies(_args) -> int:
     return 0
 
 
+def cmd_debug_overview(_args) -> int:
+    """Diagnose: laadt het overzicht en rapporteert tegels + gefaalde requests."""
+    from patchright.sync_api import sync_playwright
+    from .config import load_settings, OVERVIEW_URL
+    from .browser import launch_persistent
+    s = load_settings()
+    s.ensure_dirs()
+    failures: list[tuple[int, str]] = []
+    with sync_playwright() as pw:
+        ctx = launch_persistent(pw, s, headless=s.headless)
+        page = ctx.new_page()
+        page.on("response", lambda r: failures.append((r.status, r.url)) if r.status >= 400 else None)
+        try:
+            page.goto(OVERVIEW_URL, wait_until="networkidle", timeout=60_000)
+        except Exception as e:  # networkidle kan timen; ga door met wat er is
+            print("waarschuwing bij laden:", repr(e)[:100])
+        info = page.evaluate(
+            r"""() => {
+              const tiles = document.querySelectorAll('.mychannels-fun-tile');
+              const featured = document.querySelectorAll('.mychannels-fun-tiles-grid--featured .mychannels-fun-tile');
+              const krant = [...tiles].filter(t => (t.innerText||'').toLowerCase().includes('puzzel uit de krant'));
+              let krantHref = null;
+              for (const t of krant) { const a = t.querySelector('a.js-link--puzzle'); if (a) { krantHref = a.getAttribute('href'); break; } }
+              const body = document.body.innerText || '';
+              return { tiles: tiles.length, featured: featured.length, krant: krant.length,
+                       krantHref, loginModal: body.includes('Exclusief voor ingelogde'),
+                       recent: body.includes('Recent gespeeld') };
+            }"""
+        )
+        print("overzicht:", info)
+        png = s.data_dir / "debug-overview.png"
+        page.screenshot(path=str(png))
+        print("screenshot:", png)
+        api_fail = [(st, u) for st, u in failures if any(k in u for k in ("mychannels", "braintainment", "volkskrant", "dpg"))]
+        print(f"gefaalde requests (>=400): {len(failures)} totaal, relevante:")
+        for st, u in api_fail[:20]:
+            print(f"  {st}  {u[:110]}")
+        ctx.close()
+    return 0
+
+
 def cmd_scrape(args) -> int:
     from .config import load_settings
     from .scrape import scrape_to_file
@@ -155,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_dbg = sub.add_parser("debug-cookies", help="diagnose: toon geladen cookies (draai op de VPS)")
     p_dbg.set_defaults(func=cmd_debug_cookies)
+
+    p_dbg2 = sub.add_parser("debug-overview", help="diagnose: tegels + gefaalde requests op het overzicht")
+    p_dbg2.set_defaults(func=cmd_debug_overview)
 
     p_scrape = sub.add_parser("scrape", help="scrape de krantenpuzzel -> ruwe JSON")
     p_scrape.add_argument("--date", help="ISO-datum (default: vandaag)")
