@@ -58,6 +58,15 @@ cryptogram (widget `customerid=aldagpremium`, 11×11, volle rechthoek) én de
 (`client_id=vk-selectives-web`, `dpg_medium=fun`). Zowel de dagelijkse als de
 krantenpuzzel vereisen login → scraper draait altijd met ingelogd profiel.
 
+**Tegel-resolutie (live geverifieerd):** de krantenpuzzel-tegel is geen `<a>` maar
+een `div.mychannels-fun-tile` met een verborgen link
+`a.js-link--puzzle[href=".../cryptogram-YYYY-MM-DD~gXXXXX"]`. Klikken werkt niet
+betrouwbaar headless; lees de `href` uit en navigeer er direct heen. Kies de tegel
+in de **featured** grid (`.mychannels-fun-tiles-grid--featured`, = "Vandaag") met
+tekst "Puzzel uit de krant" — niet de Sudoku-krant-tegel of oudere datums.
+**Vensterbreedte forceren** (`--window-size=1400,940`): anders toont volkskrant.nl
+de mobiele layout zonder deze tegel.
+
 **Widget-flow:** na openen verschijnt een modal **"Nieuwe puzzel → Starten"**;
 klik "Starten" (of wacht tot de store gevuld is) voordat je uitleest.
 
@@ -316,6 +325,15 @@ SMTP_URL=
 
 ## Bekende risico's
 
+- **Akamai bot-detectie (opgelost).** De DPG-login (`login.dpgmedia.nl`) zit achter
+  Akamai Bot Manager en weigert een geautomatiseerde browser met HTTP 406 — óók met
+  `channel="chrome"`, want Akamai detecteert de CDP-automation (`Runtime.enable`).
+  Opgelost met **patchright** (gepatchte Playwright) + **echte Google Chrome**.
+  Empirisch (2026-07): login werkt headed, scrape werkt headless. Vereist dus
+  `google-chrome-stable` op de VPS. Als de headless scrape ooit alsnog 406 geeft:
+  `C2RM_HEADLESS=false` + `xvfb-run`. Merk op: `login.dpgmedia.nl` is strenger dan
+  `volkskrant.nl`; de weekrun raakt dat domein alleen als de sessie is verlopen —
+  dat wordt afgevangen als `SessionExpiredError` (schone melding, geen stille 406).
 - **Selector-drift**: Volkskrant/Braintainment kan class-namen of de
   Redux-structuur wijzigen. Afgevangen met getypeerde fouten + screenshot; fix is
   dan een kleine, geïsoleerde aanpassing in `resolve_puzzle.py`/`scrape.py`.

@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from .browser import launch_persistent
 from .config import KRANT_CUSTOMERID, OVERVIEW_URL, Settings, WIDGET_HOST
 from .errors import SessionExpiredError, StructureChangedError
 
@@ -68,32 +69,42 @@ _EXTRACT_JS = r"""
        reraise=True)
 def scrape(settings: Settings, on_date: date | None = None) -> dict:
     """Scrape de krantenpuzzel; retourneert de ruwe dict (raw)."""
-    from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
+    from patchright.sync_api import TimeoutError as PWTimeout, sync_playwright
 
     on_date = on_date or date.today()
     debug_png = settings.data_dir / f"debug-{on_date.isoformat()}.png"
 
     with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(str(settings.profile_dir), headless=True)
+        ctx = launch_persistent(pw, settings, headless=settings.headless)
         page = ctx.new_page()
         try:
             page.goto(OVERVIEW_URL, wait_until="domcontentloaded", timeout=45_000)
             _assert_logged_in(page)
 
-            # Open de krantenpuzzel.
-            tile = page.get_by_text("Puzzel uit de krant", exact=False).first
+            # Vind de krantenpuzzel-tegel (featured grid, "Vandaag") en lees de
+            # verborgen navigatielink eruit; klikken werkt niet betrouwbaar in
+            # headless, direct navigeren wel.
             try:
-                tile.click(timeout=15_000)
+                tile = page.locator(
+                    ".mychannels-fun-tiles-grid--featured .mychannels-fun-tile",
+                    has_text="Puzzel uit de krant",
+                ).first
+                href = tile.locator("a.js-link--puzzle").first.get_attribute("href", timeout=20_000)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(
-                    "Tegel 'Cryptogram - Puzzel uit de krant' niet gevonden. "
+                    "Tegel 'Cryptogram - Puzzel uit de krant' (featured) niet gevonden. "
                     f"Screenshot: {debug_png}"
                 ) from e
+            if not href:
+                page.screenshot(path=str(debug_png))
+                raise StructureChangedError(f"Krantenpuzzel-tegel zonder link. Screenshot: {debug_png}")
 
             # Puzzelpagina -> widget-iframe.
+            page.goto(href, wait_until="domcontentloaded", timeout=45_000)
             try:
-                frame_el = page.wait_for_selector("iframe.mychannels-fun-player__frame", timeout=30_000)
+                frame_el = page.wait_for_selector(
+                    "iframe.mychannels-fun-player__frame", state="attached", timeout=30_000)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(

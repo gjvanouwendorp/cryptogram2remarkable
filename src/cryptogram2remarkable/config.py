@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("./data"))
     rm_folder: str = Field(default="/Cryptogrammen")
     layout: str = Field(default="single_page")
+
+    # Browser: echte Chrome tegen Akamai bot-detectie. Leeg = Playwright-Chromium.
+    browser_channel: str = Field(default="chrome")
+    headless: bool = Field(default=True)
     timezone: str = Field(default="Europe/Amsterdam")
     log_level: str = Field(default="INFO")
 
