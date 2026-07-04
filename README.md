@@ -45,18 +45,23 @@ installeert `deploy/bootstrap.sh` automatisch `google-chrome-stable`. De login z
 wordt bewust **niet** geautomatiseerd (zie hieronder), anders blokkeert Akamai die
 alsnog.
 
-## Lokaal: login-profiel aanmaken
+## Lokaal: inloggen en sessie exporteren
 
-De ingelogde sessie leeft in een profielmap die je naar de VPS kopieert. `c2rm
-login` opent een gewone, **mensgestuurde** Chrome (geen automation, geen CDP), zodat
-Akamai je normaal binnenlaat:
+`c2rm login` opent een gewone, **mensgestuurde** Chrome (geen automation, geen CDP),
+zodat Akamai je normaal binnenlaat, en exporteert daarna een **draagbare sessie**
+`session.json`:
 
 ```bash
 source .venv/bin/activate
 c2rm login          # log in bij de Volkskrant, SLUIT daarna het venster
 ```
 
-Het profiel kopieer je in de deployment-stap hieronder naar de VPS.
+> **Waarom niet het hele profiel kopiëren?** Chrome versleutelt cookies met een
+> OS-specifieke sleutel (macOS Keychain vs. Linux keyring), dus een macOS-profiel
+> logt op een Linux-VPS níét in. `session.json` bevat de cookies als platte,
+> OS-onafhankelijke JSON — dát kopieer je naar de VPS. De scraper injecteert 'm in
+> een vers profiel. Verloopt de sessie ooit, draai dan opnieuw `c2rm login` en
+> kopieer de nieuwe `session.json`.
 
 ## Deployment op de VPS
 
@@ -72,9 +77,10 @@ Het profiel kopieer je in de deployment-stap hieronder naar de VPS.
    ```
 3. **Handmatige stappen** (de bootstrap somt ze aan het eind ook op):
    ```bash
-   # a) profiel kopiëren vanaf je Mac + eigendom zetten
-   rsync -a profile/ <vps>:/opt/cryptogram2remarkable/profile/
-   sudo chown -R c2rm:c2rm /opt/cryptogram2remarkable/profile
+   # a) draagbare sessie kopiëren vanaf je Mac (~15 KB) + eigendom
+   rsync -a session.json <vps>:/opt/cryptogram2remarkable/session.json
+   sudo chown c2rm:c2rm /opt/cryptogram2remarkable/session.json
+   sudo -u c2rm /opt/cryptogram2remarkable/.venv/bin/c2rm debug-cookies   # verifieer: ingelogd: True
 
    # b) rmapi installeren (binary van github.com/ddvk/rmapi/releases -> /usr/local/bin)
    #    en registreren met de one-time code van my.remarkable.com:
@@ -117,6 +123,6 @@ de lastige gevallen.
 
 ## Secrets
 
-Niets gevoeligs in de repo: de VK-sessie leeft in `profile/` (git-ignored), het
-reMarkable-token in `rmapi.conf` (via `RMAPI_CONFIG`, ook git-ignored). `.env` en
-`/etc/c2rm.env` staan buiten de repo.
+Niets gevoeligs in de repo: de VK-sessie leeft in `profile/` en de draagbare
+`session.json` (beide git-ignored), het reMarkable-token in `rmapi.conf` (via
+`RMAPI_CONFIG`, ook git-ignored). `.env` en `/etc/c2rm.env` staan buiten de repo.

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="C2RM_", env_file=".env", extra="ignore")
 
     profile_dir: Path = Field(default=Path("./profile"))
+    # Draagbare sessie (cookies als platte JSON). OS-onafhankelijk, i.t.t. de
+    # OS-versleutelde cookies in het Chrome-profiel — dit is wat je naar de VPS
+    # kopieert.
+    session_file: Path = Field(default=Path("./session.json"))
     data_dir: Path = Field(default=Path("./data"))
     rm_folder: str = Field(default="/Cryptogrammen")
     layout: str = Field(default="single_page")

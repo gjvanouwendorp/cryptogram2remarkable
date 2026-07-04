@@ -72,6 +72,41 @@ def cmd_check_session(_args) -> int:
     return 0 if ok else 1
 
 
+def cmd_export_session(_args) -> int:
+    from .config import load_settings
+    from .session import export_session
+    s = load_settings()
+    export_session(s)
+    print(f"Sessie geëxporteerd naar {s.session_file}")
+    return 0
+
+
+def cmd_debug_cookies(_args) -> int:
+    """Diagnose: laadt profiel + sessie en rapporteert cookies (draai op de VPS)."""
+    from collections import Counter
+    from patchright.sync_api import sync_playwright
+    from .config import load_settings, OVERVIEW_URL
+    from .browser import launch_persistent
+    s = load_settings()
+    print(f"profile_dir : {s.profile_dir.resolve()} (exists={s.profile_dir.exists()})")
+    print(f"session_file: {s.session_file.resolve()} (exists={s.session_file.exists()})")
+    with sync_playwright() as pw:
+        ctx = launch_persistent(pw, s, headless=s.headless)
+        try:
+            cks = ctx.cookies()
+            vk = [c for c in cks if "volkskrant" in c["domain"] or "dpg" in c["domain"]]
+            empty = sum(1 for c in cks if not c.get("value"))
+            print(f"cookies totaal: {len(cks)} | volkskrant/dpg: {len(vk)} | lege waarde: {empty}")
+            print("top domeinen:", Counter(c["domain"] for c in cks).most_common(6))
+            page = ctx.new_page()
+            resp = page.goto(OVERVIEW_URL, wait_until="domcontentloaded", timeout=45_000)
+            print(f"overzicht status: {resp.status if resp else '?'} | url: {page.url[:60]}")
+            print("ingelogd:" , "login.dpgmedia.nl" not in page.url and len(vk) > 0)
+        finally:
+            ctx.close()
+    return 0
+
+
 def cmd_scrape(args) -> int:
     from .config import load_settings
     from .scrape import scrape_to_file
@@ -114,6 +149,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p_check = sub.add_parser("check-session", help="controleer of het profiel nog ingelogd is")
     p_check.set_defaults(func=cmd_check_session)
+
+    p_export = sub.add_parser("export-session", help="exporteer draagbare sessie (session.json) uit het profiel")
+    p_export.set_defaults(func=cmd_export_session)
+
+    p_dbg = sub.add_parser("debug-cookies", help="diagnose: toon geladen cookies (draai op de VPS)")
+    p_dbg.set_defaults(func=cmd_debug_cookies)
 
     p_scrape = sub.add_parser("scrape", help="scrape de krantenpuzzel -> ruwe JSON")
     p_scrape.add_argument("--date", help="ISO-datum (default: vandaag)")

@@ -89,10 +89,11 @@ cat <<EOF
 
 Bootstrap klaar. Resterende HANDMATIGE stappen:
 
-1) Profiel kopiëren (vanaf je Mac, na 'c2rm login'):
-     rsync -a profile/ <deze-vps>:${APP_DIR}/profile/
+1) Draagbare sessie kopiëren (vanaf je Mac, na 'c2rm login'; ~15 KB):
+     rsync -a session.json <deze-vps>:${APP_DIR}/session.json
      # daarna op de VPS:
-     chown -R ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}/profile
+     chown ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}/session.json
+     sudo -u ${SERVICE_USER} ${APP_DIR}/.venv/bin/c2rm debug-cookies   # check: ingelogd: True
 
 2) rmapi installeren en registreren (als ${SERVICE_USER}):
      # download de juiste binary van https://github.com/ddvk/rmapi/releases

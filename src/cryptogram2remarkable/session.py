@@ -60,8 +60,29 @@ def login(settings: Settings) -> None:
         except subprocess.TimeoutExpired:
             proc.kill()
     print(f"\nProfiel opgeslagen in {profile}.")
-    print("Kopieer deze map naar de VPS, bv.:")
-    print(f"  rsync -a {settings.profile_dir}/ vps:/opt/cryptogram2remarkable/profile/")
+
+    # Exporteer een draagbare sessie (platte cookies) voor de VPS.
+    export_session(settings)
+    print(f"Draagbare sessie geschreven naar {settings.session_file}.")
+    print("Kopieer ALLEEN dit bestand naar de VPS (OS-onafhankelijk), bv.:")
+    print(f"  rsync -a {settings.session_file} vps:/opt/cryptogram2remarkable/session.json")
+
+
+def export_session(settings: Settings) -> None:
+    """Lees de cookies uit het ingelogde profiel en schrijf ze als storage_state.
+
+    Draait lokaal (macOS), waar Chrome de cookies wél kan ontsleutelen; de
+    resulterende JSON bevat de platte waarden en is overdraagbaar naar Linux.
+    """
+    from patchright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        # inject_session=False: we willen de EIGEN profielcookies exporteren.
+        ctx = launch_persistent(pw, settings, headless=True, inject_session=False)
+        try:
+            ctx.storage_state(path=str(settings.session_file))
+        finally:
+            ctx.close()
 
 
 def check_session(settings: Settings) -> bool:
