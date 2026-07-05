@@ -338,9 +338,12 @@ SMTP_URL=
   OS-specifieke sleutel (macOS Keychain vs. Linux keyring), dus een macOS-profiel
   naar Linux kopiëren logt niet in — de cookiewaarden zijn onleesbaar. Opgelost met
   een **draagbare `session.json`** (Playwright `storage_state`: platte cookies):
-  `c2rm login` exporteert 'm lokaal, de scraper injecteert 'm (`add_cookies`) in een
-  vers profiel op de VPS. Diagnose met `c2rm debug-cookies`. Je kopieert dus alleen
-  `session.json` (~15 KB), niet het profiel.
+  `c2rm login` leest die **live via CDP** uit de nog draaiende, ingelogde Chrome
+  (cruciaal op macOS: cookies op schijf zijn Keychain-versleuteld en een los
+  heropend profiel geeft 0 cookies terug). De scraper injecteert de cookies
+  (`add_cookies`) in een vers profiel op de VPS. Diagnose met `c2rm debug-cookies`.
+  Je kopieert dus alleen `session.json`, niet het profiel. Bewezen: de VPS scrapet
+  hiermee prima vanaf zijn datacenter-IP (geen IP-blok).
 - **Selector-drift**: Volkskrant/Braintainment kan class-namen of de
   Redux-structuur wijzigen. Afgevangen met getypeerde fouten + screenshot; fix is
   dan een kleine, geïsoleerde aanpassing in `resolve_puzzle.py`/`scrape.py`.

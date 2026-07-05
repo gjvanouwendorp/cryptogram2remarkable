@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="C2RM_", env_file=".env", extra="ignore")
 
     profile_dir: Path = Field(default=Path("./profile"))
+    # Pad naar de rmapi-config (met device-token). Leeg = rmapi's standaardlocatie
+    # (~/.config/rmapi/rmapi.conf) of de RMAPI_CONFIG uit de omgeving.
+    rmapi_config: str = Field(default="")
     # Draagbare sessie (cookies als platte JSON). OS-onafhankelijk, i.t.t. de
     # OS-versleutelde cookies in het Chrome-profiel — dit is wat je naar de VPS
     # kopieert.
@@ -33,6 +36,9 @@ class Settings(BaseSettings):
     # Browser: echte Chrome tegen Akamai bot-detectie. Leeg = Playwright-Chromium.
     browser_channel: str = Field(default="chrome")
     headless: bool = Field(default=True)
+    # Optionele proxy (bv. socks5://127.0.0.1:1080) om via een ander/residentieel
+    # IP te scrapen. Leeg = directe verbinding.
+    proxy: str = Field(default="")
     timezone: str = Field(default="Europe/Amsterdam")
     log_level: str = Field(default="INFO")
 

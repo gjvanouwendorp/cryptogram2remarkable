@@ -34,6 +34,8 @@ def launch_persistent(pw, settings: Settings, headless: bool, inject_session: bo
     )
     if settings.browser_channel:
         kwargs["channel"] = settings.browser_channel  # "chrome" = echte Google Chrome
+    if settings.proxy:
+        kwargs["proxy"] = {"server": settings.proxy}
     ctx = pw.chromium.launch_persistent_context(**kwargs)
 
     if inject_session and settings.session_file.exists():

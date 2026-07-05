@@ -53,8 +53,12 @@ zodat Akamai je normaal binnenlaat, en exporteert daarna een **draagbare sessie*
 
 ```bash
 source .venv/bin/activate
-c2rm login          # log in bij de Volkskrant, SLUIT daarna het venster
+c2rm login          # log in, LAAT Chrome open, druk dan op Enter
 ```
+
+`login` leest de cookies live uit de draaiende Chrome via CDP (nodig op macOS: de
+cookies op schijf zijn Keychain-versleuteld en alleen de live sessie geeft ze
+ontsleuteld terug). Verloopt de sessie later, draai dan opnieuw `c2rm login`.
 
 > **Waarom niet het hele profiel kopiëren?** Chrome versleutelt cookies met een
 > OS-specifieke sleutel (macOS Keychain vs. Linux keyring), dus een macOS-profiel

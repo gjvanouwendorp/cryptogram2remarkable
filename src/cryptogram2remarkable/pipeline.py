@@ -78,7 +78,7 @@ def run(settings: Settings, on_date: date | None = None, dry_run: bool = False) 
         if dry_run:
             log.info("dry-run: upload overgeslagen.")
         else:
-            uploaded = upload(pdf_path, settings.rm_folder)
+            uploaded = upload(pdf_path, settings.rm_folder, settings.rmapi_config)
             log.info("Upload %s naar %s", "gelukt" if uploaded else "overgeslagen (al aanwezig)",
                      settings.rm_folder)
 
