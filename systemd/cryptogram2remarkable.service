@@ -8,7 +8,9 @@ Type=oneshot
 User=c2rm
 # bootstrap.sh vervangt /opt/cryptogram2remarkable door de echte projectmap.
 WorkingDirectory=/opt/cryptogram2remarkable
-EnvironmentFile=/etc/c2rm.env
+# Optioneel (de '-' voorkomt een fout als het bestand ontbreekt); zet hierin
+# eventuele overrides zoals C2RM_RM_FOLDER of C2RM_RMAPI_CONFIG.
+EnvironmentFile=-/etc/c2rm.env
 # Chrome heeft een schrijfbare HOME nodig; rmapi vindt zijn token via RMAPI_CONFIG.
 Environment=HOME=/home/c2rm
 Environment=RMAPI_CONFIG=/opt/cryptogram2remarkable/rmapi.conf
