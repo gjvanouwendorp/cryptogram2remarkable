@@ -1,15 +1,19 @@
 """Stap 1+2: puzzel-ID achterhalen en de Redux-data ophalen met Playwright.
 
-Werkwijze (live bevestigd 2026-07-04):
-1. Open de overzichtspagina met het HERBRUIKBARE, ingelogde profiel
-   (launch_persistent_context op C2RM_PROFILE_DIR).
-2. Klik de tegel "Cryptogram - Puzzel uit de krant" -> puzzelpagina met
-   `iframe.mychannels-fun-player__frame`.
-3. Lees de iframe-src; controleer dat het de krantenpuzzel is
-   (customerid=volkskrant, gametype=Cryptogram).
-4. Navigeer de pagina rechtstreeks naar die widget-URL (cross-origin; als iframe
+Werkwijze (live bevestigd 2026-07-12, na de VK-site-redesign):
+1. Open de overzichts-URL met het HERBRUIKBARE, ingelogde profiel
+   (launch_persistent_context op C2RM_PROFILE_DIR). Deze redirect naar de
+   dagelijkse cryptogrampagina met tabs (Mini / Normaal / Uit de krant).
+2. Volg de "Uit de krant"-variantlink (`a[href*="/variant/uit-de-krant/"]`).
+3. Volg op de variantpagina de "Speel"-link naar de speelpagina
+   (`a[href*="/variant/uit-de-krant/"][href*="/speel/"]`); pas daar verschijnt
+   de braintainment-widget als iframe.
+4. Lees de iframe-src (selecteer op host `web.braintainment.com`; de class is
+   nu een instabiele CSS-module-hash). Controleer dat het de krantenpuzzel is
+   (customerid=volkskrant, puzzlevariation=weekendPuzzlecrypto).
+5. Navigeer de pagina rechtstreeks naar die widget-URL (cross-origin; als iframe
    niet leesbaar). Klik "Starten" indien aanwezig.
-5. Wacht tot de React/Redux-store gevuld is en lees `state.cells`/`state.clues`
+6. Wacht tot de React/Redux-store gevuld is en lees `state.cells`/`state.clues`
    uit via het React-fiber.
 
 Levert een ruwe dict op in exact dezelfde vorm als tests/fixtures/sample_raw.json,
@@ -25,7 +29,13 @@ from urllib.parse import parse_qs, urlparse
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from .browser import launch_persistent
-from .config import KRANT_CUSTOMERID, OVERVIEW_URL, Settings, WIDGET_HOST
+from .config import (
+    KRANT_CUSTOMERID,
+    KRANT_PUZZLEVARIATION,
+    OVERVIEW_URL,
+    Settings,
+    WIDGET_HOST,
+)
 from .errors import SessionExpiredError, StructureChangedError
 
 # JS dat via het React-fiber de store vindt en de puzzeldata teruggeeft.
@@ -81,44 +91,64 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             page.goto(OVERVIEW_URL, wait_until="domcontentloaded", timeout=45_000)
             _assert_logged_in(page)
 
-            # Vind de krantenpuzzel-tegel (featured grid, "Vandaag") en lees de
-            # verborgen navigatielink eruit; klikken werkt niet betrouwbaar in
-            # headless, direct navigeren wel.
+            # Stap 2: volg de "Uit de krant"-variantlink. De overzichts-URL
+            # redirect naar de dagelijkse cryptogrampagina met tabs; de
+            # weekend-krantpuzzel zit achter deze variant (semantische slug,
+            # geen instabiele hash). Klikken werkt niet betrouwbaar in headless,
+            # de absolute href oplezen en direct navigeren wel.
+            variant_href = _resolve_href(
+                page, 'a[href*="/variant/uit-de-krant/"]',
+                "'Uit de krant'-variantlink", debug_png,
+            )
+            page.goto(variant_href, wait_until="domcontentloaded", timeout=45_000)
+
+            # De variant/speel-routes triggeren een silent OIDC-token-refresh
+            # (prompt=none -> login2.volkskrant.nl/authorize). Laat die eerst
+            # afronden; anders breekt de volgende navigatie af (ERR_ABORTED) of
+            # blijft de pagina op de authorize-URL hangen.
             try:
-                tile = page.locator(
-                    ".mychannels-fun-tiles-grid--featured .mychannels-fun-tile",
-                    has_text="Puzzel uit de krant",
-                ).first
-                href = tile.locator("a.js-link--puzzle").first.get_attribute("href", timeout=20_000)
+                page.wait_for_load_state("networkidle", timeout=25_000)
+            except PWTimeout:
+                pass
+
+            # Stap 3: klik de "Speel"-link. Dit is een Next.js/SPA-navigatie naar
+            # de speelpagina (een harde `goto` wordt door de app afgebroken); pas
+            # daar laadt de braintainment-widget als iframe.
+            speel = page.locator(
+                'a[href*="/variant/uit-de-krant/"][href*="/speel/"]').first
+            try:
+                speel.wait_for(state="attached", timeout=20_000)
+                speel.click(timeout=15_000, no_wait_after=True)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(
-                    "Tegel 'Cryptogram - Puzzel uit de krant' (featured) niet gevonden. "
+                    "'Speel'-link (uit de krant) niet gevonden/klikbaar. "
                     f"Screenshot: {debug_png}"
                 ) from e
-            if not href:
-                page.screenshot(path=str(debug_png))
-                raise StructureChangedError(f"Krantenpuzzel-tegel zonder link. Screenshot: {debug_png}")
 
-            # Puzzelpagina -> widget-iframe.
-            page.goto(href, wait_until="domcontentloaded", timeout=45_000)
+            # Stap 4: widget-iframe (selecteer op host; class is een instabiele
+            # CSS-module-hash geworden).
             try:
                 frame_el = page.wait_for_selector(
-                    "iframe.mychannels-fun-player__frame", state="attached", timeout=30_000)
+                    f'iframe[src*="{WIDGET_HOST}"]', state="attached", timeout=30_000)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(
-                    f"iframe.mychannels-fun-player__frame ontbreekt. Screenshot: {debug_png}"
+                    f"Widget-iframe (host {WIDGET_HOST}) ontbreekt op de speelpagina. "
+                    f"Screenshot: {debug_png}"
                 ) from e
 
             src = frame_el.get_attribute("src") or ""
             qs = parse_qs(urlparse(src).query)
             host = urlparse(src).netloc
-            if host != WIDGET_HOST or qs.get("customerid", [""])[0] != KRANT_CUSTOMERID:
+            if (host != WIDGET_HOST
+                    or qs.get("customerid", [""])[0] != KRANT_CUSTOMERID
+                    or qs.get("puzzlevariation", [""])[0] != KRANT_PUZZLEVARIATION):
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(
-                    f"Widget-URL wijkt af (host={host}, customerid={qs.get('customerid')}). "
-                    f"Screenshot: {debug_png}"
+                    f"Widget-URL wijkt af (host={host}, "
+                    f"customerid={qs.get('customerid')}, "
+                    f"puzzlevariation={qs.get('puzzlevariation')}). Screenshot: {debug_png}"
                 )
 
             # Navigeer rechtstreeks naar de widget (wordt topdocument).
@@ -156,6 +186,29 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             return data
         finally:
             ctx.close()
+
+
+def _resolve_href(page, selector: str, wat: str, debug_png: Path) -> str:
+    """Wacht op een <a>, geef de volledig-opgeloste (absolute) href terug.
+
+    `el.href` levert altijd een absolute URL, ongeacht of het attribuut relatief
+    is — zo hoeven we niet zelf te urljoinen.
+    """
+    from patchright.sync_api import TimeoutError as PWTimeout
+
+    loc = page.locator(selector).first
+    try:
+        loc.wait_for(state="attached", timeout=20_000)
+        href = loc.evaluate("el => el.href")
+    except PWTimeout as e:
+        page.screenshot(path=str(debug_png))
+        raise StructureChangedError(
+            f"{wat} niet gevonden ({selector}). Screenshot: {debug_png}"
+        ) from e
+    if not href:
+        page.screenshot(path=str(debug_png))
+        raise StructureChangedError(f"{wat} zonder href. Screenshot: {debug_png}")
+    return href
 
 
 def _assert_logged_in(page) -> None:

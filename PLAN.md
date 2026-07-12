@@ -45,27 +45,34 @@ cryptogram (widget `customerid=aldagpremium`, 11×11, volle rechthoek) én de
 *krantenpuzzel* "Cryptogram - Puzzel uit de krant". De service moet de
 **krantenpuzzel** hebben: tegel met ondertitel "Cryptogram - Puzzel uit de krant".
 
-**URL-/parameterpatroon (bevestigd):**
-- Overzicht: `volkskrant.nl/puzzels/ontdekken/cryptogram~genre23`
-- Puzzelpagina: `.../puzzels/puzzels/cryptogram-YYYY-MM-DD~gXXXXXXXX`
-- Widget (in `iframe.mychannels-fun-player__frame`, cross-origin):
-  `web.braintainment.com/pub/puzzle/volkskrant/?gametype=Cryptogram&puzzleid=KNL-XXXXXXXX&customerid=volkskrant&puzzlevariation=weekendPuzzlecrypto&env=browser`
+**URL-/parameterpatroon (bevestigd 2026-07-12, na VK-site-redesign):**
+- Overzicht: `volkskrant.nl/puzzels/ontdekken/cryptogram~genre23` → redirect naar
+  de dagelijkse cryptogrampagina `.../puzzels/spel/cryptogram/{id}/` met tabs
+  (Mini / Normaal / **Uit de krant**).
+- Variantpagina: `.../puzzels/spel/cryptogram/{id}/variant/uit-de-krant/{id2}/`
+- Speelpagina: `.../variant/uit-de-krant/{id2}/speel/cryptogram-uit-de-krant-YYYY-MM-DD/{id3}/`
+- Widget (iframe op de **speelpagina**, cross-origin):
+  `web.braintainment.com/pub/puzzle/volkskrant/?gametype=Cryptogram&puzzleid=KNL-XXXXXXXX&customerid=volkskrant&puzzlevariation=weekendPuzzlecrypto`
 - De widget is cross-origin t.o.v. volkskrant.nl → de store is niet vanuit de
-  parent te lezen. **Navigeer de scraper rechtstreeks naar de widget-URL** (zoals
-  in het plan), dan is de React-app het topdocument.
+  parent te lezen. **Navigeer de scraper rechtstreeks naar de widget-URL**, dan is
+  de React-app het topdocument.
 
 **Auth (bevestigd):** DPG Media-login (e-mail + wachtwoord) op `login.dpgmedia.nl`
 (`client_id=vk-selectives-web`, `dpg_medium=fun`). Zowel de dagelijkse als de
-krantenpuzzel vereisen login → scraper draait altijd met ingelogd profiel.
+krantenpuzzel vereisen login → scraper draait altijd met ingelogd profiel. De
+variant-/speelroutes doen een **silent OIDC-token-refresh** (`prompt=none` →
+`login2.volkskrant.nl/authorize`) die eerst moet afronden (`wait_for_load_state
+("networkidle")`) voordat je verder navigeert.
 
-**Tegel-resolutie (live geverifieerd):** de krantenpuzzel-tegel is geen `<a>` maar
-een `div.mychannels-fun-tile` met een verborgen link
-`a.js-link--puzzle[href=".../cryptogram-YYYY-MM-DD~gXXXXX"]`. Klikken werkt niet
-betrouwbaar headless; lees de `href` uit en navigeer er direct heen. Kies de tegel
-in de **featured** grid (`.mychannels-fun-tiles-grid--featured`, = "Vandaag") met
-tekst "Puzzel uit de krant" — niet de Sudoku-krant-tegel of oudere datums.
-**Vensterbreedte forceren** (`--window-size=1400,940`): anders toont volkskrant.nl
-de mobiele layout zonder deze tegel.
+**Navigatie-resolutie (live geverifieerd 2026-07-12):** de IDs in de paden
+wisselen (dagelijks/wekelijks), dus resolve ze dynamisch:
+- Volg `a[href*="/variant/uit-de-krant/"]` (semantische slug, geen hash) → lees
+  de absolute `href` en navigeer er direct heen.
+- Wacht op networkidle (silent-auth), **klik** dan
+  `a[href*="/variant/uit-de-krant/"][href*="/speel/"]` (Next.js/SPA-navigatie;
+  een harde `goto` wordt door de app afgebroken met `ERR_ABORTED`).
+- De widget-iframe heeft nu een instabiele CSS-module-class
+  (`game-player_gamePlayer__…`) → selecteer op host `web.braintainment.com`.
 
 **Widget-flow:** na openen verschijnt een modal **"Nieuwe puzzel → Starten"**;
 klik "Starten" (of wacht tot de store gevuld is) voordat je uitleest.
@@ -156,9 +163,9 @@ cryptogram2remarkable/
 ## Stap 1 — Puzzle-ID achterhalen (`resolve_puzzle.py`)
 
 - Open met de **persistente Playwright-context** de cryptogram-overzichtspagina
-  (`volkskrant.nl/puzzels/ontdekken/cryptogram~genre23`) of de dag-URL
-  (`cryptogram-YYYY-MM-DD~gXXXXXXXX`).
-- Wacht op `iframe.mychannels-fun-player__frame`, lees de `src` en parse de
+  (`volkskrant.nl/puzzels/ontdekken/cryptogram~genre23`); volg de "Uit de krant"-
+  variant en klik door naar de speelpagina (zie navigatie-resolutie hierboven).
+- Wacht op `iframe[src*="web.braintainment.com"]`, lees de `src` en parse de
   querystring: `gametype`, `puzzleid`, `customerid`, `puzzlevariation`.
 - Output: een dict met deze parameters + de volledige widget-URL.
 - **Robuustheid**: als het iframe niet binnen een timeout verschijnt → controleer
