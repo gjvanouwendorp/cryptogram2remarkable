@@ -2,8 +2,8 @@
 
 Haalt wekelijks (zaterdagochtend) het **Volkskrant-cryptogram uit de krant** op,
 rendert het als één landscape-PDF op reMarkable-2-maat (leeg rooster + clues om
-zelf op te lossen) en uploadt het naar je reMarkable. Ontworpen om onbewaakt op
-een Hetzner VPS te draaien.
+zelf op te lossen) en uploadt het naar je reMarkable. Ontworpen om zelfstandig op
+een VPS te draaien.
 
 Zie [PLAN.md](PLAN.md) voor het volledige ontwerp en de geverifieerde bevindingen
 over de databron.
