@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 from .config import Settings
+from .errors import PuzzleNotAvailableError
 from .normalize import normalize
 from .render_pdf import render_pdf
 from .scrape import scrape
@@ -53,7 +54,11 @@ def run(settings: Settings, on_date: date | None = None, dry_run: bool = False) 
         state = _load_state(state_path)
 
         log.info("Scrape gestart (%s)", on_date.isoformat())
-        raw = scrape(settings, on_date)
+        try:
+            raw = scrape(settings, on_date)
+        except PuzzleNotAvailableError as e:
+            log.warning("%s Een latere timer-run probeert het opnieuw.", e)
+            return {"status": "not_available", "reason": str(e)}
         puzzleid = raw["meta"].get("puzzleid", "")
         (settings.data_dir / f"raw-{on_date.isoformat()}.json").write_text(
             json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")

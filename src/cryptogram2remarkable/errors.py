@@ -14,5 +14,9 @@ class StructureChangedError(C2RMError):
     """Verwachte elementen/data ontbreken -> Volkskrant/Braintainment heeft iets gewijzigd."""
 
 
+class PuzzleNotAvailableError(C2RMError):
+    """De nieuwste krantpuzzel op de site is (nog) niet die van deze week."""
+
+
 class UploadError(C2RMError):
     pass

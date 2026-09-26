@@ -22,6 +22,7 @@ zodat normalize/render er identiek op werken.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -36,7 +37,15 @@ from .config import (
     Settings,
     WIDGET_HOST,
 )
-from .errors import SessionExpiredError, StructureChangedError
+from .errors import PuzzleNotAvailableError, SessionExpiredError, StructureChangedError
+
+# De Speel-link bevat de publicatiedatum, bv.
+# .../speel/cryptogram-uit-de-krant-2026-09-19/wa6j2x65fk/
+_SPEEL_DATE_RE = re.compile(r"/speel/[^/]*?(\d{4}-\d{2}-\d{2})/")
+
+# Generieke foutpagina van volkskrant.nl ("Er is iets misgegaan / Probeer het
+# later opnieuw"); tijdelijk probleem aan hun kant, geen structuurwijziging.
+_SITE_ERROR_TEXT = "Er is iets misgegaan"
 
 # JS dat via het React-fiber de store vindt en de puzzeldata teruggeeft.
 _EXTRACT_JS = r"""
@@ -118,6 +127,7 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
                 'a[href*="/variant/uit-de-krant/"][href*="/speel/"]').first
             try:
                 speel.wait_for(state="attached", timeout=20_000)
+                _assert_fresh(speel.get_attribute("href") or "", on_date)
                 speel.click(timeout=15_000, no_wait_after=True)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
@@ -133,9 +143,12 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
                     f'iframe[src*="{WIDGET_HOST}"]', state="attached", timeout=30_000)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
+                oorzaak = (" De site toont de foutpagina 'Er is iets misgegaan' "
+                           "(storing bij de Volkskrant)."
+                           if _site_error_shown(page) else "")
                 raise StructureChangedError(
-                    f"Widget-iframe (host {WIDGET_HOST}) ontbreekt op de speelpagina. "
-                    f"Screenshot: {debug_png}"
+                    f"Widget-iframe (host {WIDGET_HOST}) ontbreekt op de speelpagina."
+                    f"{oorzaak} Screenshot: {debug_png}"
                 ) from e
 
             src = frame_el.get_attribute("src") or ""
@@ -209,6 +222,30 @@ def _resolve_href(page, selector: str, wat: str, debug_png: Path) -> str:
         page.screenshot(path=str(debug_png))
         raise StructureChangedError(f"{wat} zonder href. Screenshot: {debug_png}")
     return href
+
+
+def _assert_fresh(speel_href: str, on_date: date) -> None:
+    """Weiger de puzzel van vorige week (nieuwe nog niet gepubliceerd).
+
+    Zonder deze check zou een vroege run de puzzel van een week eerder
+    ophalen en die onder de datum van vandaag opslaan.
+    """
+    m = _SPEEL_DATE_RE.search(speel_href)
+    if not m:
+        return  # geen datum in de link; niet blokkeren op een naamswijziging
+    puzzle_date = date.fromisoformat(m.group(1))
+    if (on_date - puzzle_date).days >= 7:
+        raise PuzzleNotAvailableError(
+            f"Nieuwste krantpuzzel is van {puzzle_date.isoformat()}; die van "
+            f"deze week ({on_date.isoformat()}) staat nog niet online."
+        )
+
+
+def _site_error_shown(page) -> bool:
+    try:
+        return page.get_by_text(_SITE_ERROR_TEXT).count() > 0
+    except Exception:
+        return False
 
 
 def _assert_logged_in(page) -> None:

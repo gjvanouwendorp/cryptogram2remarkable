@@ -5,6 +5,11 @@ Description=Draai het Volkskrant-cryptogram wekelijks (zaterdagochtend)
 # Zaterdag 08:00 in de VPS-tijdzone. Zet de VPS op Europe/Amsterdam of gebruik
 # een absoluut tijdstip dat daarmee overeenkomt.
 OnCalendar=Sat *-*-* 08:00:00
+# Herkansingen: de puzzel staat soms pas later online, of de site heeft een
+# storing. Veilig door de idempotentie (al geüploade puzzel -> 'skipped').
+OnCalendar=Sat *-*-* 11:00:00
+OnCalendar=Sat *-*-* 15:00:00
+OnCalendar=Sun *-*-* 09:00:00
 # Vang een gemiste run op (bv. VPS stond uit) zodra de machine weer aan is.
 Persistent=true
 Unit=cryptogram2remarkable.service
