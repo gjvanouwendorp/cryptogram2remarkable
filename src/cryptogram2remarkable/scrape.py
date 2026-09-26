@@ -127,7 +127,7 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
                 'a[href*="/variant/uit-de-krant/"][href*="/speel/"]').first
             try:
                 speel.wait_for(state="attached", timeout=20_000)
-                _assert_fresh(speel.get_attribute("href") or "", on_date)
+                published = _assert_fresh(speel.get_attribute("href") or "", on_date)
                 speel.click(timeout=15_000, no_wait_after=True)
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
@@ -190,6 +190,8 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             data["meta"] = {
                 "gametype": qs.get("gametype", ["Cryptogram"])[0],
                 "date": on_date.isoformat(),
+                # Publicatiedatum uit de Speel-link (None als die er niet in staat).
+                "published": published.isoformat() if published else None,
                 "puzzleid": qs.get("puzzleid", [""])[0],
                 "customerid": qs.get("customerid", [""])[0],
                 "puzzlevariation": qs.get("puzzlevariation", [""])[0],
@@ -224,21 +226,23 @@ def _resolve_href(page, selector: str, wat: str, debug_png: Path) -> str:
     return href
 
 
-def _assert_fresh(speel_href: str, on_date: date) -> None:
+def _assert_fresh(speel_href: str, on_date: date) -> date | None:
     """Weiger de puzzel van vorige week (nieuwe nog niet gepubliceerd).
 
     Zonder deze check zou een vroege run de puzzel van een week eerder
-    ophalen en die onder de datum van vandaag opslaan.
+    ophalen en die onder de datum van vandaag opslaan. Geeft de
+    publicatiedatum terug.
     """
     m = _SPEEL_DATE_RE.search(speel_href)
     if not m:
-        return  # geen datum in de link; niet blokkeren op een naamswijziging
+        return None  # geen datum in de link; niet blokkeren op een naamswijziging
     puzzle_date = date.fromisoformat(m.group(1))
     if (on_date - puzzle_date).days >= 7:
         raise PuzzleNotAvailableError(
             f"Nieuwste krantpuzzel is van {puzzle_date.isoformat()}; die van "
             f"deze week ({on_date.isoformat()}) staat nog niet online."
         )
+    return puzzle_date
 
 
 def _site_error_shown(page) -> bool:

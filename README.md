@@ -96,10 +96,19 @@ ontsleuteld terug). Verloopt de sessie later, draai dan opnieuw `c2rm login`.
    sudo systemctl enable --now cryptogram2remarkable.timer
    ```
 
-De timer draait zaterdag 08:00 (`Persistent=true` haalt een gemiste run in). Logs:
+De timer draait zaterdag 08:00, met herkansingen om 11:00, 15:00 en zondag 09:00
+(`Persistent=true` haalt een gemiste run in). Logs:
 `journalctl -u cryptogram2remarkable`. Geeft de headless scrape op de VPS toch een
 406, zet dan `C2RM_HEADLESS=false` in `/etc/c2rm.env` en gebruik de Xvfb-ExecStart
 uit het service-bestand.
+
+### Notificaties (ntfy)
+
+Zet `C2RM_NTFY_URL=https://ntfy.sh/<topic>` in `/etc/c2rm.env` en abonneer je in de
+ntfy-app op hetzelfde topic. Kies een lastig te raden naam: iedereen die hem kent
+kan meelezen. De run van zaterdagochtend meldt altijd of het gelukt is. Een
+herkansing meldt alleen iets zolang de puzzel van die week nog niet binnen is.
+Een dry-run stuurt nooit iets. Testen: `c2rm notify-test`.
 
 ## Gebruik
 
@@ -107,7 +116,9 @@ uit het service-bestand.
 c2rm check-session                 # is het profiel nog ingelogd?
 c2rm scrape                        # ruwe dump -> data/raw-YYYY-MM-DD.json
 c2rm run --dry-run                 # volledige pijplijn zonder upload
-c2rm run                           # scrape -> render -> upload
+c2rm run                           # scrape -> render -> upload (+ ntfy-melding)
+c2rm run --no-notify               # idem, zonder melding
+c2rm notify-test                   # testmelding naar C2RM_NTFY_URL
 
 # render itereren zonder scrapen:
 c2rm render --raw tests/fixtures/sample_raw.json --out data/out.pdf

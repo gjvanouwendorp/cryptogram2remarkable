@@ -42,8 +42,10 @@ class Settings(BaseSettings):
     timezone: str = Field(default="Europe/Amsterdam")
     log_level: str = Field(default="INFO")
 
-    notify_email: str = Field(default="")
-    smtp_url: str = Field(default="")
+    # Push-notificatie via ntfy: volledige topic-URL, bv. https://ntfy.sh/<topic>.
+    # Leeg = uit. Token alleen nodig voor een beveiligd topic/eigen server.
+    ntfy_url: str = Field(default="")
+    ntfy_token: str = Field(default="")
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

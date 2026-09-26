@@ -162,9 +162,22 @@ def cmd_run(args) -> int:
     settings = load_settings()
     logging.basicConfig(level=settings.log_level,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    result = run(settings, _parse_date(args.date), dry_run=args.dry_run)
+    result = run(settings, _parse_date(args.date), dry_run=args.dry_run,
+                 notify=not args.no_notify)
     print(json.dumps(result, ensure_ascii=False))
     return 0
+
+
+def cmd_notify_test(args) -> int:
+    from .config import load_settings
+    from .notify import send
+    settings = load_settings()
+    if not settings.ntfy_url:
+        print("C2RM_NTFY_URL is niet gezet.")
+        return 1
+    ok = send(settings, "Cryptogram: test", "Notificaties werken.", tags=["bell"])
+    print("Verstuurd." if ok else "Versturen mislukt (zie log).")
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -206,8 +219,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p_run = sub.add_parser("run", help="volledige pipeline: scrape -> render -> upload")
     p_run.add_argument("--date", help="ISO-datum (default: vandaag)")
-    p_run.add_argument("--dry-run", action="store_true", help="niet uploaden")
+    p_run.add_argument("--dry-run", action="store_true", help="niet uploaden (en geen notificatie)")
+    p_run.add_argument("--no-notify", action="store_true", help="geen ntfy-notificatie sturen")
     p_run.set_defaults(func=cmd_run)
+
+    p_ntfy = sub.add_parser("notify-test", help="stuur een testnotificatie naar C2RM_NTFY_URL")
+    p_ntfy.set_defaults(func=cmd_notify_test)
 
     args = parser.parse_args(argv)
     return args.func(args)
