@@ -110,6 +110,40 @@ kan meelezen. De run van zaterdagochtend meldt altijd of het gelukt is. Een
 herkansing meldt alleen iets zolang de puzzel van die week nog niet binnen is.
 Een dry-run stuurt nooit iets. Testen: `c2rm notify-test`.
 
+### Updaten op de VPS
+
+De code is van je eigen gebruiker; `c2rm` bezit alleen wat de service beschrijft
+(`.venv`, `data/`, `profile/`, `session.json`, `rmapi.conf`). Zo pull je als jezelf
+met je eigen GitHub-toegang, en kan de service zijn eigen code niet wijzigen.
+Eenmalig instellen (bv. als de hele map ooit van `c2rm` is gemaakt):
+
+```bash
+cd /opt/cryptogram2remarkable
+sudo chown -R "$USER:$USER" .
+sudo chown -R c2rm:c2rm .venv data profile session.json rmapi.conf
+sudo chmod 600 session.json rmapi.conf
+```
+
+Daarna bij elke update:
+
+```bash
+cd /opt/cryptogram2remarkable && git pull
+```
+
+Door de editable install werken codewijzigingen direct. Alleen in twee gevallen
+is er meer nodig:
+
+```bash
+# pyproject.toml gewijzigd (nieuwe dependencies):
+sudo -u c2rm .venv/bin/pip install -e .
+
+# systemd/ gewijzigd: units opnieuw installeren
+sudo sed "s#/opt/cryptogram2remarkable#$PWD#g" systemd/cryptogram2remarkable.service \
+    | sudo tee /etc/systemd/system/cryptogram2remarkable.service >/dev/null
+sudo cp systemd/cryptogram2remarkable.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl restart cryptogram2remarkable.timer
+```
+
 ## Gebruik
 
 ```bash
