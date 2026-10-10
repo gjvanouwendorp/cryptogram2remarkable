@@ -49,8 +49,8 @@ cryptogram (widget `customerid=aldagpremium`, 11×11, volle rechthoek) én de
 - Overzicht: `volkskrant.nl/puzzels/ontdekken/cryptogram~genre23` → redirect naar
   de dagelijkse cryptogrampagina `.../puzzels/spel/cryptogram/{id}/` met tabs
   (Mini / Normaal / **Uit de krant**).
-- Variantpagina: `.../puzzels/spel/cryptogram/{id}/variant/uit-de-krant/{id2}/`
-- Speelpagina: `.../variant/uit-de-krant/{id2}/speel/cryptogram-uit-de-krant-YYYY-MM-DD/{id3}/`
+- Variantpagina: `.../puzzels/spel/cryptogram/{id}/variant/uit-de-volkskrant/{id2}/`
+- Speelpagina: `.../variant/uit-de-volkskrant/{id2}/speel/cryptogram-uit-de-volkskrant-YYYY-MM-DD/{id3}/`
 - Widget (iframe op de **speelpagina**, cross-origin):
   `web.braintainment.com/pub/puzzle/volkskrant/?gametype=Cryptogram&puzzleid=KNL-XXXXXXXX&customerid=volkskrant&puzzlevariation=weekendPuzzlecrypto`
 - De widget is cross-origin t.o.v. volkskrant.nl → de store is niet vanuit de
@@ -66,10 +66,10 @@ variant-/speelroutes doen een **silent OIDC-token-refresh** (`prompt=none` →
 
 **Navigatie-resolutie (live geverifieerd 2026-07-12):** de IDs in de paden
 wisselen (dagelijks/wekelijks), dus resolve ze dynamisch:
-- Volg `a[href*="/variant/uit-de-krant/"]` (semantische slug, geen hash) → lees
+- Volg `a[href*="/variant/uit-de-"]` (semantische slug, geen hash) → lees
   de absolute `href` en navigeer er direct heen.
 - Wacht op networkidle (silent-auth), **klik** dan
-  `a[href*="/variant/uit-de-krant/"][href*="/speel/"]` (Next.js/SPA-navigatie;
+  `a[href*="/variant/uit-de-"][href*="/speel/"]` (Next.js/SPA-navigatie;
   een harde `goto` wordt door de app afgebroken met `ERR_ABORTED`).
 - De widget-iframe heeft nu een instabiele CSS-module-class
   (`game-player_gamePlayer__…`) → selecteer op host `web.braintainment.com`.

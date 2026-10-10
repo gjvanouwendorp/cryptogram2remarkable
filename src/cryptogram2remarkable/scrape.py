@@ -4,9 +4,10 @@ Werkwijze (live bevestigd 2026-07-12, na de VK-site-redesign):
 1. Open de overzichts-URL met het HERBRUIKBARE, ingelogde profiel
    (launch_persistent_context op C2RM_PROFILE_DIR). Deze redirect naar de
    dagelijkse cryptogrampagina met tabs (Mini / Normaal / Uit de krant).
-2. Volg de "Uit de krant"-variantlink (`a[href*="/variant/uit-de-krant/"]`).
+2. Volg de "Uit de Volkskrant"-variantlink (`a[href*="/variant/uit-de-"]`; de
+   slug heette tot oktober 2026 `uit-de-krant`, nu `uit-de-volkskrant`).
 3. Volg op de variantpagina de "Speel"-link naar de speelpagina
-   (`a[href*="/variant/uit-de-krant/"][href*="/speel/"]`); pas daar verschijnt
+   (`a[href*="/variant/uit-de-"][href*="/speel/"]`); pas daar verschijnt
    de braintainment-widget als iframe.
 4. Lees de iframe-src (selecteer op host `web.braintainment.com`; de class is
    nu een instabiele CSS-module-hash). Controleer dat het de krantenpuzzel is
@@ -40,7 +41,7 @@ from .config import (
 from .errors import PuzzleNotAvailableError, SessionExpiredError, StructureChangedError
 
 # De Speel-link bevat de publicatiedatum, bv.
-# .../speel/cryptogram-uit-de-krant-2026-09-19/wa6j2x65fk/
+# .../speel/cryptogram-uit-de-volkskrant-2026-10-10/q8a2f8h_s6/
 _SPEEL_DATE_RE = re.compile(r"/speel/[^/]*?(\d{4}-\d{2}-\d{2})/")
 
 # Generieke foutpagina van volkskrant.nl ("Er is iets misgegaan / Probeer het
@@ -106,8 +107,8 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             # geen instabiele hash). Klikken werkt niet betrouwbaar in headless,
             # de absolute href oplezen en direct navigeren wel.
             variant_href = _resolve_href(
-                page, 'a[href*="/variant/uit-de-krant/"]',
-                "'Uit de krant'-variantlink", debug_png,
+                page, 'a[href*="/variant/uit-de-"]',
+                "'Uit de Volkskrant'-variantlink", debug_png,
             )
             page.goto(variant_href, wait_until="domcontentloaded", timeout=45_000)
 
@@ -124,7 +125,7 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             # de speelpagina (een harde `goto` wordt door de app afgebroken); pas
             # daar laadt de braintainment-widget als iframe.
             speel = page.locator(
-                'a[href*="/variant/uit-de-krant/"][href*="/speel/"]').first
+                'a[href*="/variant/uit-de-"][href*="/speel/"]').first
             try:
                 speel.wait_for(state="attached", timeout=20_000)
                 published = _assert_fresh(speel.get_attribute("href") or "", on_date)
@@ -132,7 +133,7 @@ def scrape(settings: Settings, on_date: date | None = None) -> dict:
             except PWTimeout as e:
                 page.screenshot(path=str(debug_png))
                 raise StructureChangedError(
-                    "'Speel'-link (uit de krant) niet gevonden/klikbaar. "
+                    "'Speel'-link (uit de Volkskrant) niet gevonden/klikbaar. "
                     f"Screenshot: {debug_png}"
                 ) from e
 
